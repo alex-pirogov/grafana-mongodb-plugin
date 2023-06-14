@@ -1,0 +1,24 @@
+version: '3.0'
+
+services:
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    ports:
+      - 3000:3000/tcp
+    volumes:
+      - ./dist:/var/lib/grafana/plugins/alexpirogov-mongodb-datasource
+      - ./provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=alexpirogov-mongodb-datasource
+      - GF_PLUGINS_ENABLE_ALPHA=true
+      - GF_LOG_LEVEL=debug
+    
+  mongo-express:
+    image: mongo-express
+    restart: unless-stopped
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://juniors:123456@alex-pirogov.ru:27017/
+      

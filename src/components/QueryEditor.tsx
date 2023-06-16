@@ -26,7 +26,6 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
   const { Db, Collection, Aggregation } = query;
 
   return (
-    // <div className="gf-form" style={{display: "flex", flexDirection: "column"}}>
     <div className="gf-form">
       <FieldSet>
         <InlineFieldRow style={{ flexDirection: 'row-reverse' }}>
@@ -45,7 +44,19 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
 
         <InlineFieldRow>
           <Field label="Aggregation">
-            <TextArea onChange={onAggregationChange} rows={10} cols={100}>
+            <TextArea
+              onChange={onAggregationChange}
+              rows={10}
+              cols={100}
+              style={{
+                fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                fontWeight: 'normal',
+                fontSize: '12px',
+                fontFeatureSettings: '"liga" 0, "calt" 0',
+                lineHeight: '18px',
+                letterSpacing: '0px',
+              }}
+            >
               {Aggregation || ''}
             </TextArea>
           </Field>

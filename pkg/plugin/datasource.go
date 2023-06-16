@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -93,6 +94,32 @@ type Goal struct {
 	Time primitive.DateTime
 }
 
+func ParseAggregations(raw_aggregations string) ([]bson.D, error) {
+	var aggregations []bson.D
+
+	var multiple_aggregations bson.A
+	err := bson.UnmarshalExtJSON([]byte(raw_aggregations), false, &multiple_aggregations)
+	if err == nil {
+		for idx, single_aggregation := range multiple_aggregations {
+			if doc, ok := single_aggregation.(bson.D); ok {
+				aggregations = append(aggregations, doc)
+			} else {
+				return nil, fmt.Errorf("error parsing aggregation [%d]", idx)
+			}
+		}
+		return aggregations, nil
+	}
+
+	var single_aggregation bson.D
+	err = bson.UnmarshalExtJSON([]byte(raw_aggregations), false, &single_aggregation)
+	if err != nil {
+		return nil, errors.New("error parsing aggregation")
+	}
+
+	aggregations = append(aggregations, single_aggregation)
+	return aggregations, nil
+}
+
 func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
 	var response backend.DataResponse
 	var err error
@@ -110,19 +137,23 @@ func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query 
 
 	coll := d.MongoClient.Database(qm.Db).Collection(qm.Collection)
 
-	var decode_result bson.D
+	var decoded_aggregations []bson.D
 	fmt.Printf("Raw aggregation: %s\n", qm.Aggregation)
-	bson.UnmarshalExtJSON([]byte(qm.Aggregation), false, &decode_result)
-	fmt.Printf("Decoded aggregation: %s\n\n", decode_result)
-
-	cursor, err := coll.Aggregate(context.TODO(), mongo.Pipeline{decode_result})
+	decoded_aggregations, err = ParseAggregations(qm.Aggregation)
 	if err != nil {
-		panic(err)
+		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("parse aggregation: %v", err.Error()))
+	}
+
+	fmt.Printf("Decoded aggregations: %s\n\n", decoded_aggregations)
+
+	cursor, err := coll.Aggregate(context.TODO(), decoded_aggregations)
+	if err != nil {
+		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("aggregate: %v", err.Error()))
 	}
 
 	var results []bson.M
 	if err = cursor.All(context.TODO(), &results); err != nil {
-		panic(err)
+		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("fetch aggregate results: %v", err.Error()))
 	}
 
 	fmt.Printf("Fetch results: %s\n\n", results)
